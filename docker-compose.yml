@@ -1,0 +1,113 @@
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+  image: babym/app:latest
+  env_file: ./api/.env
+  volumes:
+    - ./api:/var/www/api
+  working_dir: /var/www/api
+  networks: [babym]
+  depends_on:
+    mysql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *app
+    container_name: babym_app
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: babym_nginx
+    ports:
+      - "8092:80"
+    volumes:
+      - ./web:/var/www/web:ro
+      - ./api:/var/www/api:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+      - socket
+    networks: [babym]
+
+  mysql:
+    image: mysql:8.4
+    container_name: babym_mysql
+    ports:
+      - "3310:3306"
+    environment:
+      MYSQL_DATABASE: "${DB_DATABASE:-babym}"
+      MYSQL_USER: "${DB_USERNAME:-babym_user}"
+      MYSQL_PASSWORD: "${DB_PASSWORD:-babym_secret}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-root_secret}"
+    volumes:
+      - babym_mysql:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD:-root_secret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [babym]
+
+  redis:
+    image: redis:7-alpine
+    container_name: babym_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - babym_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [babym]
+
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    container_name: babym_phpmyadmin
+    ports:
+      - "8093:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+    depends_on:
+      - mysql
+    networks: [babym]
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: babym_mailpit
+    ports:
+      - "8026:8025"
+      - "1026:1025"
+    networks: [babym]
+
+  socket:
+    build:
+      context: ./socket-server
+      dockerfile: Dockerfile
+    image: babym/socket:latest
+    container_name: babym_socket
+    environment:
+      SOCKET_PORT: 3001
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SOCKET_CHANNEL: "${SOCKET_CHANNEL:-babym.rt}"
+      SOCKET_SECRET: "${SOCKET_SECRET:-}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [babym]
+
+volumes:
+  babym_mysql:
+  babym_redis:
+
+networks:
+  babym:
+    driver: bridge
