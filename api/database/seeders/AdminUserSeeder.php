@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Hash;
 /**
  * Ports assets/js/data.js's seedMembers() into real, DB-backed accounts (dev-only
  * password "password" for all — clearly not for a real deploy). The Owner's email
- * is deliberately swapped to admin@admin.com (seedMembers() used jae@babym.co)
+ * is deliberately swapped to admin@admin.com (seedMembers() used jae@example.com)
  * so the existing demo login credentials keep working, now backed by real auth.
  */
 class AdminUserSeeder extends Seeder
@@ -25,7 +25,7 @@ class AdminUserSeeder extends Seeder
         ]);
 
         User::create([
-            'name' => 'Soo-ah Lim', 'email' => 'sooah@babym.co', 'password' => Hash::make('password'),
+            'name' => 'Soo-ah Lim', 'email' => 'sooah@example.com', 'password' => Hash::make('password'),
             'role' => 'Admin', 'status' => 'Active', 'all_quizzes' => true,
         ]);
 

@@ -36,3 +36,7 @@ docker compose exec app php artisan test
 ```
 
 Tests use an in-memory SQLite database, so your MySQL data is never touched.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
